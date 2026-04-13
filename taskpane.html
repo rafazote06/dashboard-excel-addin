@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard Automático</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    :root {
+      --bg: #070d1a;
+      --surface: #0d1729;
+      --card: #111f35;
+      --border: #1a2d4a;
+      --accent: #2563eb;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --purple: #8b5cf6;
+      --text: #e2eaf7;
+      --sub: #7a96b8;
+      --muted: #4a6080;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-icon {
+      width: 30px; height: 30px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .header-info { flex: 1; min-width: 0; }
+    .header-title { font-weight: 800; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-sub { font-size: 10px; color: var(--sub); }
+    .btn-refresh {
+      background: var(--accent);
+      border: none; border-radius: 8px;
+      color: #fff; padding: 6px 12px;
+      font-size: 11px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+      transition: opacity .15s;
+    }
+    .btn-refresh:hover { opacity: .85; }
+    .btn-refresh:disabled { background: var(--muted); cursor: default; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 10px 14px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .tab {
+      background: transparent;
+      border: none; border-bottom: 2px solid transparent;
+      color: var(--sub); padding: 6px 10px;
+      font-size: 11px; font-weight: 700;
+      cursor: pointer; transition: all .15s;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── Content ── */
+    .content { padding: 12px 14px; }
+
+    /* ── Empty / Loading ── */
+    .center {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 20px; text-align: center; gap: 10px;
+    }
+    .center-icon { font-size: 40px; }
+    .center-title { font-weight: 800; font-size: 15px; }
+    .center-sub { font-size: 12px; color: var(--sub); line-height: 1.6; }
+
+    /* ── Selector pills ── */
+    .pill-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .pill-label { font-size: 10px; color: var(--sub); font-weight: 700; letter-spacing: 1px; }
+    .pill {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--sub); border-radius: 20px;
+      padding: 3px 10px; font-size: 10px;
+      cursor: pointer; font-weight: 600;
+      transition: all .15s;
+    }
+    .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .kpi-label { font-size: 9px; color: var(--sub); font-weight: 700; letter-spacing: .8px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kpi-value { font-size: 18px; font-weight: 800; line-height: 1.2; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Chart ── */
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+    .chart-title { font-weight: 700; font-size: 11px; margin-bottom: 8px; }
+    .bar-wrap { display: flex; align-items: flex-end; gap: 3px; height: 80px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+    .bar-val { font-size: 8px; color: var(--text); font-weight: 600; }
+    .bar { width: 100%; border-radius: 3px 3px 0 0; transition: height .4s; }
+    .bar-lbl { font-size: 8px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-align: center; }
+
+    /* ── Donut ── */
+    .donut-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .legend-text { font-size: 10px; color: var(--sub); }
+
+    /* ── Table ── */
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th { padding: 7px 8px; text-align: left; color: var(--sub); font-weight: 700; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--surface); }
+    td { padding: 6px 8px; border-bottom: 1px solid rgba(26,45,74,.3); white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+    tr:nth-child(even) td { background: rgba(13,23,41,.5); }
+
+    /* ── Filter select ── */
+    .filter-row { display: flex; flex-direction: column; gap: 3px; }
+    .filter-label { font-size: 9px; color: var(--sub); font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }
+    select, input[type=text] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 11px;
+      outline: none;
+      width: 100%;
+    }
+    .filters-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+
+    /* ── Schema info ── */
+    .schema-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 10px;
+      color: var(--sub);
+      margin-top: 10px;
+      line-height: 1.8;
+    }
+
+    .spinner { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">📊</div>
+  <div class="header-info">
+    <div class="header-title" id="sheetName">Dashboard Automático</div>
+    <div class="header-sub" id="headerSub">Clique em Atualizar para carregar</div>
+  </div>
+  <button class="btn-refresh" id="btnRefresh" onclick="loadData()">▶ Atualizar</button>
+</div>
+
+<div class="tabs" id="tabs" style="display:none">
+  <button class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+  <button class="tab" onclick="switchTab('dados')">📋 Dados</button>
+</div>
+
+<div class="content" id="content">
+  <div class="center">
+    <div class="center-icon">📋</div>
+    <div class="center-title">Pronto para gerar</div>
+    <div class="center-sub">Abra qualquer planilha com dados<br>e clique em <b>Atualizar</b>.</div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let allRows = [];
+let cols = { dateCol: null, numCols: [], textCols: [] };
+let primaryCol = null;
+let groupCol = null;
+let filters = {};
+let activeTab = 'dashboard';
+const COLORS = ['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316','#ec4899'];
+
+// ── Office init ────────────────────────────────────────────────────────────
+Office.onReady(() => {
+  // ready, waiting for user to click Atualizar
+});
+
+// ── Load data from Excel ───────────────────────────────────────────────────
+async function loadData() {
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner">⟳</span> Lendo...';
+  showLoading();
+
+  try {
+    await Excel.run(async ctx => {
+      const sheet = ctx.workbook.worksheets.getActiveWorksheet();
+      const range = sheet.getUsedRange();
+      range.load(['values','address']);
+      await ctx.sync();
+
+      const vals = range.values;
+      if (!vals || vals.length < 2) {
+        showEmpty('Planilha vazia ou sem dados suficientes.');
+        return;
+      }
+
+      const headers = vals[0].map(h => String(h).trim()).filter(Boolean);
+      const rows = [];
+      for (let i = 1; i < vals.length; i++) {
+        const row = {};
+        headers.forEach((h, j) => {
+          let v = vals[i][j];
+          // Try to parse dates (Excel serial numbers or strings)
+          if (typeof v === 'number' && v > 40000 && v < 60000) {
+            // Likely Excel date serial
+            const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+            if (!isNaN(d)) { row[h] = d; return; }
+          }
+          if (typeof v === 'string' && v.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+            const parts = v.split('/');
+            const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            if (!isNaN(d)) { row[h] = d; return; }
+          }
+          row[h] = v === null ? '' : v;
+        });
+        if (Object.values(row).some(v => v !== '')) rows.push(row);
+      }
+
+      allRows = rows;
+      cols = analyzeCols(rows);
+      primaryCol = cols.numCols[0] || null;
+      groupCol = cols.textCols[0] || null;
+      filters = {};
+
+      document.getElementById('sheetName').textContent = sheet.name;
+      document.getElementById('headerSub').textContent = `${rows.length} linhas · ${headers.length} colunas`;
+      document.getElementById('tabs').style.display = 'flex';
+
+      render();
+    });
+  } catch(e) {
+    showEmpty('Erro ao ler planilha: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '▶ Atualizar';
+}
+
+// ── Column analysis ────────────────────────────────────────────────────────
+function analyzeCols(rows) {
+  if (!rows.length) return { dateCol: null, numCols: [], textCols: [] };
+  const keys = Object.keys(rows[0]);
+  const s = rows.slice(0, 30);
+  const dateCol  = keys.find(k => s.some(r => r[k] instanceof Date)) || null;
+  const numCols  = keys.filter(k => k !== dateCol && s.filter(r => typeof r[k] === 'number' && isFinite(r[k])).length >= 3);
+  const textCols = keys.filter(k => k !== dateCol && !numCols.includes(k) && s.some(r => typeof r[k] === 'string' && r[k].trim()));
+  return { dateCol, numCols, textCols };
+}
+
+// ── Filtered rows ──────────────────────────────────────────────────────────
+function getFiltered() {
+  return allRows.filter(r => {
+    for (const [k,v] of Object.entries(filters)) {
+      if (v && String(r[k]) !== v) return false;
+    }
+    return true;
+  });
+}
+
+// ── Format value ──────────────────────────────────────────────────────────
+function fmt(v, key='') {
+  if (v instanceof Date) return v.toLocaleDateString('pt-BR');
+  if (typeof v !== 'number' || !isFinite(v)) return v === '' || v == null ? '—' : String(v);
+  if (/valor|preco|custo|total|receita|venda|fatura/i.test(key))
+    return v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+  return v % 1 === 0 ? v.toLocaleString('pt-BR') : v.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(t) {
+  activeTab = t;
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', (i===0&&t==='dashboard')||(i===1&&t==='dados')));
+  render();
+}
+
+// ── Main render ────────────────────────────────────────────────────────────
+function render() {
+  if (activeTab === 'dashboard') renderDashboard();
+  else renderDados();
+}
+
+function renderDashboard() {
+  const filtered = getFiltered();
+  const el = document.getElementById('content');
+  let html = '';
+
+  // Filter dropdowns
+  const filterOpts = {};
+  cols.textCols.slice(0,4).forEach(k => {
+    const vals = [...new Set(allRows.map(r => r[k]).filter(v => v !== ''))].sort().slice(0,25);
+    if (vals.length >= 2 && vals.length <= 20) filterOpts[k] = vals;
+  });
+
+  if (Object.keys(filterOpts).length) {
+    html += '<div class="filters-grid">';
+    for (const [k, opts] of Object.entries(filterOpts)) {
+      html += `<div class="filter-row">
+        <label class="filter-label">${k}</label>
+        <select onchange="filters['${k}']=this.value;render()">
+          <option value="">Todos</option>
+          ${opts.map(o=>`<option value="${o}" ${filters[k]===o?'selected':''}>${String(o).slice(0,20)}</option>`).join('')}
+        </select>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Metric selector
+  if (cols.numCols.length > 1) {
+    html += '<div class="pill-row"><span class="pill-label">MÉTRICA:</span>';
+    cols.numCols.forEach((k,i) => {
+      html += `<button class="pill ${primaryCol===k?'active':''}" onclick="primaryCol='${k}';render()" style="${primaryCol===k?`background:${COLORS[i%COLORS.length]};border-color:${COLORS[i%COLORS.length]}`:''}">
+        ${k}
+      </button>`;
+    });
+    html += '</div>';
+  }
+
+  // KPIs
+  const numVals = k => filtered.map(r => r[k]).filter(v => typeof v==='number' && isFinite(v));
+  const sum  = k => numVals(k).reduce((a,b)=>a+b,0);
+  const avg  = k => { const v=numVals(k); return v.length?sum(k)/v.length:0; };
+  const maxV = k => { const v=numVals(k); return v.length?Math.max(...v):0; };
+
+  html += '<div class="kpi-grid">';
+  html += kpiCard(`Total — ${primaryCol||'—'}`, fmt(sum(primaryCol||''), primaryCol||''), `${filtered.length} registros`, COLORS[0]);
+  html += kpiCard('Registros', filtered.length.toLocaleString('pt-BR'), `de ${allRows.length.toLocaleString('pt-BR')} total`, COLORS[1]);
+  if (primaryCol) html += kpiCard(`Média`, fmt(avg(primaryCol),primaryCol), primaryCol, COLORS[2]);
+  if (primaryCol) html += kpiCard(`Máximo`, fmt(maxV(primaryCol),primaryCol), primaryCol, COLORS[3]);
+  html += '</div>';
+
+  // Group selector
+  if (cols.textCols.length > 1) {
+    html += '<div class="pill-row"><span class="pill-label">AGRUPAR:</span>';
+    cols.textCols.slice(0,5).forEach(k => {
+      html += `<button class="pill ${groupCol===k?'active':''}" onclick="groupCol='${k}';render()">${k}</button>`;
+    });
+    html += '</div>';
+  }
+
+  // Bar chart: metric by group
+  if (groupCol && primaryCol) {
+    const m = {};
+    filtered.forEach(r => { const k=String(r[groupCol]||'—'); m[k]=(m[k]||0)+(typeof r[primaryCol]==='number'?r[primaryCol]:0); });
+    const data = Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const max = Math.max(...data.map(d=>d[1]),1);
+    html += `<div class="chart-card">
+      <div class="chart-title">📊 ${primaryCol} por ${groupCol}</div>
+      <div class="bar-wrap">
+        ${data.map(([lbl,val],i)=>`
+          <div class="bar-col">
+            <span class="bar-val">${val>9999?(val/1000).toFixed(1)+'k':Math.round(val)}</span>
+            <div class="bar" style="background:${COLORS[0]};height:${Math.max(4,(val/max)*56)}px"></div>
+            <span class="bar-lbl">${String(lbl).slice(0,9)}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Donut: count by group
+  if (groupCol) {
+    const m = {};
+    filtered.forEach(r => { const k=String(r[groupCol]||'—'); m[k]=(m[k]||0)+1; });
+    const data = Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const total = data.reduce((s,[,v])=>s+v,0);
+    let cum = -90; const r=38,cx=50,cy=50;
+    const arcs = data.map(([lbl,val],i) => {
+      const frac=val/total;
+      const a1=(cum*Math.PI)/180; cum+=frac*360; const a2=(cum*Math.PI)/180;
+      const x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1);
+      const x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+      return {path:`M${cx},${cy}L${x1},${y1}A${r},${r} 0 ${frac>.5?1:0},1 ${x2},${y2}Z`, lbl, val, color:COLORS[i%COLORS.length]};
+    });
+    html += `<div class="chart-card">
+      <div class="chart-title">🍩 Distribuição por ${groupCol}</div>
+      <div class="donut-wrap">
+        <svg width="100" height="100" viewBox="0 0 100 100" style="flex-shrink:0">
+          ${arcs.map(a=>`<path d="${a.path}" fill="${a.color}" opacity="0.9"/>`).join('')}
+          <circle cx="${cx}" cy="${cy}" r="22" fill="#111f35"/>
+          <text x="${cx}" y="${cy+5}" text-anchor="middle" fill="#e2eaf7" font-size="11" font-weight="bold">${total}</text>
+        </svg>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${arcs.map(a=>`<div class="legend-item"><div class="legend-dot" style="background:${a.color}"></div><span class="legend-text">${String(a.lbl).slice(0,14)}: <b style="color:#e2eaf7">${a.val}</b></span></div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Extra numeric cols
+  cols.numCols.slice(1,4).forEach((k,i) => {
+    html += `<div class="chart-card">
+      <div class="chart-title">🔢 ${k}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px">
+        ${[['Soma',sum(k)],['Média',avg(k)],['Máx',maxV(k)]].map(([l,v])=>`
+          <div style="text-align:center">
+            <div style="font-size:13px;font-weight:800;color:${COLORS[(i+2)%COLORS.length]}">${fmt(v,k)}</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:2px">${l}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  });
+
+  // Schema
+  html += `<div class="schema-bar">
+    📅 <b>Data:</b> ${cols.dateCol||'não detectada'}&nbsp;&nbsp;
+    🔢 <b>Numéricas:</b> ${cols.numCols.join(', ')||'—'}&nbsp;&nbsp;
+    🏷️ <b>Texto:</b> ${cols.textCols.join(', ')||'—'}
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+function renderDados() {
+  const filtered = getFiltered();
+  const keys = allRows.length ? Object.keys(allRows[0]) : [];
+  let html = `<div style="font-weight:700;margin-bottom:8px;font-size:12px">📋 ${filtered.length.toLocaleString('pt-BR')} registros</div>`;
+  html += '<div class="tbl-wrap"><table><thead><tr>';
+  keys.forEach(k => { html += `<th>${k}</th>`; });
+  html += '</tr></thead><tbody>';
+  filtered.slice(0,200).forEach((row,i) => {
+    html += '<tr>';
+    keys.forEach(k => {
+      const v = row[k];
+      const isN = typeof v === 'number' && isFinite(v);
+      const isD = v instanceof Date;
+      html += `<td style="color:${isN?'var(--yellow)':isD?'var(--sub)':'var(--text)'}; text-align:${isN?'right':'left'}">${fmt(v,k)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  if (filtered.length > 200) html += `<div style="padding:8px;font-size:10px;color:var(--muted)">Exibindo 200 de ${filtered.length.toLocaleString('pt-BR')} registros.</div>`;
+  document.getElementById('content').innerHTML = html;
+}
+
+function kpiCard(label, value, sub, color) {
+  return `<div class="kpi-card">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value" style="color:${color}">${value}</div>
+    <div class="kpi-sub">${sub}</div>
+  </div>`;
+}
+
+function showLoading() {
+  document.getElementById('content').innerHTML = `<div class="center"><div class="center-icon spinner">⟳</div><div class="center-sub">Lendo dados da planilha...</div></div>`;
+}
+
+function showEmpty(msg) {
+  document.getElementById('content').innerHTML = `<div class="center"><div class="center-icon">⚠️</div><div class="center-sub">${msg}</div></div>`;
+  document.getElementById('tabs').style.display = 'none';
+}
+</script>
+</body>
+</html>
